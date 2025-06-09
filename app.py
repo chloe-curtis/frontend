@@ -116,3 +116,14 @@ total_news_year = int(df["Total News"].sum())
 st.success(f"**Total News in {year}: {total_news_year}**")
 
 st.caption("All values are randomly generated for demo. Real data/API can be easily integrated.")
+
+
+#backend connection test
+st.markdown("---")
+
+#make api call to backend
+url = "http://localhost:8000/"
+import requests
+response=requests.get(url)
+response_json = response.json()
+st.markdown(f"local api output: {response_json['message']}")
