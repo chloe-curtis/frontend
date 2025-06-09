@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import requests
+
 
 st.set_page_config(page_title="Quarterly Sentiment Analysis", layout="wide")
 st.markdown(
@@ -122,8 +124,7 @@ st.caption("All values are randomly generated for demo. Real data/API can be eas
 st.markdown("---")
 
 #make api call to backend
-url = "http://localhost:8000/"
-import requests
+url = "https://corporate-sentiment-tracker-217305741515.europe-west1.run.app/"
 response=requests.get(url)
 response_json = response.json()
 st.markdown(f"local api output: {response_json['message']}")
