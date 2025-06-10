@@ -1,3 +1,4 @@
 streamlit
 yfinance
 plotly
+sec-api
