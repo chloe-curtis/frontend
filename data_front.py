@@ -201,8 +201,9 @@ def ticker_sentiment(ticker):
         WHERE
             quarter_year != 'Q4-24'
                 AND
-            ticker = '{ticker}'
+            ticker = '{ticker.upper()}'
         """
+    print("running query:", query_ticker)
     ticker_df = download_df_from_bq("net_sentiment", custom_query=query_ticker)
 
     # Apply the function to the column
