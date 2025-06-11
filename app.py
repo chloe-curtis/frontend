@@ -2,15 +2,66 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import requests
+from data_front import sector_sentiment, ticker_sentiment, TEST_MDA_TEXT
+from sec_api import ExtractorApi
 
-from data_front import sector_sentiment, ticker_sentiment
+
+#glibal
+call_sec_api = False
+mdna_section = ""
+
+BACKEND_BASE_URL = "http://localhost:8000"
+
 
 
 st.set_page_config(page_title="Corporate Net Sentiment Analysis", layout="wide")
 st.markdown("<h1 style='text-align: center; margin-bottom: 2rem;'>Corporate Net Sentiment Analysis</h1>", unsafe_allow_html=True)
 
-# --- Ticker/Sector seçimi için örnek liste ---
+# --- 1. SEC Links & Company Database ---
 company_db = {
+    "mcd": {
+        "name": "McDonald's",
+        "sector": "Consumer Cyclical",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0000063908/000006390825000025/mcd-20250331.htm"
+    },
+    "mtch": {
+        "name": "Match Group",
+        "sector": "Communication Services",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0000891103/000089110325000076/mtch-20250331.htm"
+    },
+    "lyv": {
+        "name": "Live Nation",
+        "sector": "Communication Services",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0001335258/000133525825000055/lyv-20250331.htm"
+    },
+    "bby": {
+        "name": "Best Buy",
+        "sector": "Consumer Cyclical",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0000764478/000076447825000019/bby-20250503x10q.htm"
+    },
+    "ba": {
+        "name": "Boeing",
+        "sector": "Industrials",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0000012927/000001292725000031/ba-20250331.htm"
+    },
+    "tsla": {
+        "name": "Tesla",
+        "sector": "Consumer Discretionary",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0001318605/000162828025018911/tsla-20250331.htm"
+    },
+    "xom": {
+        "name": "Exxon Mobil",
+        "sector": "Energy",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0000034088/000003408825000024/xom-20250331.htm"
+    },
+    "cmg": {
+        "name": "Chipotle",
+        "sector": "Consumer Cyclical",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0001058090/000105809025000031/cmg-20250331.htm"
+    }
+}
+#dont need?
+sector_dict = {
     "A": {'sector': 'Healthcare'},
     "AAL": {'sector': 'Industrials'},
     "AAP": {'sector': 'Consumer Cyclical'},
@@ -624,63 +675,46 @@ company_db = {
     "ZTS": {'sector': 'Healthcare'},
 }
 
-
-
-
-
-
-
-
+url_db = {
+    "BBY": {
+        'html' : 'https://www.sec.gov/Archives/edgar/data/764478/000076447825000019/bby-20250503x10q.htm',
+        'mda': """We are driven by our purpose to enrich lives through technology and our vision to personalize and humanize technology solutions for every stage of life. We accomplish this by leveraging our combination of tech expertise and a human touch to meet our customers’ everyday needs, whether they come to us online, visit our stores or invite us into their homes.
+                We have two reportable segments: Domestic and International. The Domestic segment is comprised of our operations in all states, districts and territories of the U.S. and our Best Buy Health business. The International segment is comprised of all our operations in Canada.
+                Our fiscal year ends on the Saturday nearest the end of January. Our business, like that of many retailers, is seasonal. A large proportion of our revenue and earnings is generated in the fiscal fourth quarter, which includes the majority of the holiday shopping season.
+            """,
+        'neutral_dominance': 'FALSE',
+        'net_sentiment': -0.45,
+        'up_and_down': 'DOWN'
+    },
+    "TSLA" : {
+        "html" : 'https://www.sec.gov/ix?doc=/Archives/edgar/data/0001318605/000162828025018911/tsla-20250331.htm',
+        'mda': """Our mission is to accelerate the world’s transition to sustainable energy. We design, develop, manufacture, lease and sell high-performance fully electric vehicles, solar energy generation systems and energy storage products. We also offer maintenance, installation, operation, charging, insurance, financial and other services related to our products. Additionally, we are increasingly focused on products and services based on AI, robotics and automation.
+	As a result of rapidly evolving trade policy, uncertainty in the automotive and energy markets continues to increase, posing risks to our global supply chain and cost structure which could have a meaningfully adverse impact on demand for our products and our profitability. The current tariff regime will have a relatively larger impact on our energy generation and storage business compared to our automotive business. While we prepare for near-term challenges to our business under current policies, we are focused on long-term growth opportunities as we continue to make prudent investments.""",
+        'neutral_dominance': 'FALSE',
+        'net_sentiment': 0.15,
+        'up_and_down': 'UP'
+    },
+    "LYV": {
+        "html" : 'https://www.sec.gov/ix?doc=/Archives/edgar/data/0001335258/000133525825000055/lyv-20250331.htm',
+        'mda': """
+        The first quarter was a strong start to the year for the Company with one of our highest operating income and adjusted operating income results ever for the first quarter. Based on our strong pipeline of stadium shows for the remainder of the year, coupled with our current deferred revenue balance of $6.1 billion as of March 31, 2025, which is up $1.1 billion or 21% compared to March 31, 2024, we are optimistic for continued success in the remainder of the year.
+	    Our overall revenue decreased by 11% to $3.4 billion on a reported basis, or 8% decline on a constant currency basis as compared to the same period of the prior year. This was largely the result of a reduction in arena show volume in the United States. Despite this, our operating income for the quarter increased by $156.2 million, from an operating loss of $41.4 million in the first quarter of 2024 to an operating income of $114.8 million in the first quarter of 2025 due to higher operating performance from our Concerts and Sponsorship segments as well as the Astroworld estimated loss contingencies recorded in our Concerts segment in the first quarter of 2024. The increase in operating income was $170.9 million at constant currency.
+        """,
+        'neutral_dominance': 'TRUE',
+        'net_sentiment': -0.2,
+        'up_and_down': 'DOWN'
+    }
+}
 
 all_tickers = list(company_db.keys())
 all_sectors = sorted(set([v["sector"] for v in company_db.values()]))
 
-# col1, col2 = st.columns(2)
-# with col1:
+ticker_names = [f"{company_db[t]['name']} ({t.upper()})" for t in all_tickers]
+ticker_label_to_ticker = {f"{company_db[t]['name']} ({t.upper()})": t for t in all_tickers}
+
 selected_ticker = st.selectbox("Select Ticker", all_tickers)
-# with col2:
-#     selected_sector = st.selectbox("Select Sector", all_sectors)
 
-if st.button("✨Get sentiment over time"):
-    #button clicked
-    if selected_ticker:
-        print("selcted ticker",selected_ticker )
-        net_sentiment_df = ticker_sentiment(selected_ticker)
-    else :
-        net_sentiment_df = sector_sentiment(selected_sector)
-    #check if ticker or sector
-
-    #run approrpiate func
 net_sentiment_df = ticker_sentiment(selected_ticker)
- #   st.write(net_sentiment_df)
-# # --- Data çek ---
-# # net_sentiment_df = get_sentiment_over_time_placeholder(selected_ticker)
-# if net_sentiment_df.empty:
-#     st.warning("No data available for the selected ticker.")
-#     st.stop()
-
-# --- Quarter-Year Selectbox ---
-quarter_year_options = net_sentiment_df["quarter_year"].dropna().unique()
-quarter_year_options.sort()
-selected_quarter = st.selectbox("Select Quarter & Year", quarter_year_options)
-
-# --- Filter the selected row ---
-row = net_sentiment_df[net_sentiment_df["quarter_year"] == selected_quarter]
-
-
-
-if row.empty:
-    st.warning("No data for the selected quarter.")
-    st.stop()
-
-selected_row = row.iloc[0]
-
-# --- Display metrics ---
-colA, colB, colC, colD = st.columns(4)
-colA.metric("Quarter-Year", str(selected_row["quarter_year"]))
-colB.metric("Net Sentiment", f'{selected_row["net_sentiment"]:.2f}')
-colC.metric("Sector", str(selected_row["sector"]))
-colD.metric("Ticker", str(selected_row["ticker"]))
 
 # --- Show full DataFrame ---
 st.markdown("---")
@@ -691,34 +725,10 @@ st.dataframe(net_sentiment_df, use_container_width=True)
 #     st.warning("No data available for the selected ticker.")
 #     st.stop()
 
-# --- Quarter-Year Selectbox ---
-# quarter_year_options = net_sentiment_df["quarter_year"].unique()
-# selected_quarter = st.selectbox("Select Quarter & Year", quarter_year_options)
-
-# # --- Seçili satırı bul ve göster ---
-# row = net_sentiment_df[net_sentiment_df["quarter_year"] == selected_quarter]
-# if row.empty:
-#     st.warning("No data for the selected quarter.")
-#     st.stop()
-# selected_row = row.iloc[0]
-
-# colA, colB, colC, colD = st.columns(4)
-# colA.metric("Quarter-Year", selected_row["quarter_year"])
-# colB.metric("Net Sentiment", f'{selected_row["net_sentiment"]:.2f}')
-# colC.metric("Sector", selected_row["sector"])
-# colD.metric("Ticker", selected_row["ticker"])
-
-# st.markdown("---")
-# st.subheader("All Quarters Table")
-# st.dataframe(net_sentiment_df, use_container_width=True)
-### josh comment out old code######
-
-# # --- Grafik ---
-# st.subheader("Quarterly Net Sentiment (Bar Chart)")
-
-# # Pozitif/negatif renk listesi otomatik oluşturuluyor
+# --- 5. Modern Bar Chart (Up Green / Down Red) ---
+st.subheader("Quarterly Net Sentiment (Bar Chart)")
 colors = ["#00CC96" if val >= 0 else "#EF553B" for val in net_sentiment_df["net_sentiment"]]
-# Plotly Bar Chart
+
 fig = go.Figure()
 fig.add_trace(go.Bar(
     x=net_sentiment_df["quarter_year"],
@@ -738,102 +748,185 @@ fig.update_layout(
     height=450
 )
 st.plotly_chart(fig, use_container_width=True)
+st.markdown("---")
+
+# --- Quarter-Year Selectbox ---
+quarter_year_options = net_sentiment_df["quarter_year"].dropna().unique()
+quarter_year_options.sort()
+selected_quarter = st.selectbox("Select Quarter & Year", quarter_year_options)
+
+# --- Filter the selected row ---
+row = net_sentiment_df[net_sentiment_df["quarter_year"] == selected_quarter]
+
+if row.empty:
+    st.warning("No data for the selected quarter.")
+    st.stop()
+
+selected_row = row.iloc[0]
+
+# --- Display metrics ---
+colA, colB, colC, colD = st.columns(4)
+colA.metric("Quarter-Year", str(selected_row["quarter_year"]))
+colB.metric("Net Sentiment", f'{selected_row["net_sentiment"]:.2f}')
+colC.metric("Sector", str(selected_row["sector"]))
+colD.metric("Ticker", str(selected_row["ticker"]))
 
 st.markdown("---")
 
-# ==============================================================================
-# DEEP-DIVE SENTIMENT ANALYSIS (FinBERT backend ile konuşur)
-# ==============================================================================
+# Streamlit UI
+st.header("MDA Section Extraction from SEC URL, by ticker")
 
-st.header("Deep-Dive Sentiment Analysis")
-st.write("""
-Click the button to perform a deep-dive analysis on the backend's default MDA text using FinBERT.
-Results will be visualized below.
-""")
+all_urls = list(url_db.keys())
+selected_url = st.selectbox("Select Ticker", all_urls)
 
-DEFAULT_MDA_ANALYSIS_URL = "http://127.0.0.1:8000/analyze_default_mda/"  # Gerekirse backend URL'ini değiştir
+data = url_db[selected_url]
 
-if st.button("✨ Perform Deep-Dive Analysis"):
-    with st.spinner("Connecting to backend and running analysis... Please wait."):
-        try:
-            response = requests.get(DEFAULT_MDA_ANALYSIS_URL, timeout=300)
-            response.raise_for_status()
-            data = response.json()
-            results = data.get("sentiment_results")
+# Display all data
+st.markdown(f"**MDA Section:** {data.get('mda', 'No data')}")
+st.markdown(f"**Neutral Dominance:** {data.get('neutral_dominance', 'N/A')}")
+st.markdown(f"**Net Sentiment:** {data.get('net_sentiment', 'N/A')}")
+st.markdown(f"\n**Prediction:** {data.get('up_and_down', 'N/A')}")
 
-            st.success(f"Analysis Completed! Source: `{data.get('source', 'N/A')}`")
-            st.markdown("### Analysis Results")
-
-            labels = ['Positive Paragraphs', 'Negative Paragraphs', 'Neutral Paragraphs']
-            values = [
-                results.get("count_positive_chunks", 0),
-                results.get("count_negative_chunks", 0),
-                results.get("count_neutral_chunks", 0)
-            ]
-            colors = ['#28a745', '#dc3545', '#6c757d']
-
-            fig_pie = go.Figure(data=[go.Pie(
-                labels=labels,
-                values=values,
-                hole=.5,
-                marker_colors=colors,
-                pull=[0.05, 0, 0]
-            )])
-
-            fig_pie.update_layout(
-                title_text="Paragraph Sentiment Distribution",
-                template="plotly_dark",
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-            )
-
-            col1, col2 = st.columns([1, 1])
-
-            with col1:
-                st.plotly_chart(fig_pie, use_container_width=True)
-            with col2:
-                st.markdown("#### Key Metrics")
-                st.markdown(f"""
-                - **Peak Positive Score:** `{results.get("max_positive_score", 0):.4f}`
-                - **Peak Negative Score:** `{results.get("max_negative_score", 0):.4f}`
-                - **Average Positive Score:** `{results.get("avg_positive", 0):.4f}`
-                - **Average Negative Score:** `{results.get("avg_negative", 0):.4f}`
-                """)
-                total_paragraphs = sum(values)
-                st.info(f"A total of **{total_paragraphs}** paragraphs were analyzed.")
-
-            with st.expander("View Raw Dictionary Output"):
-                st.json(results)
-
-        except requests.exceptions.RequestException as e:
-            st.error(f"API Connection Error: Could not connect to the backend.")
-            st.info(f"Details: {e}")
 
 st.markdown("---")
 
-# ==============================================================================
-# MD&A SECTION EXTRACTION (SEC API ile metin çekmek)
-# ==============================================================================
 
-st.header("MDA Section Extraction from SEC API")
-st.write("Click to extract the MD&A section from SEC filings using the SEC API.")
 
-if st.button("✨ Get MDA from SEC API"):
-    with st.spinner("Connecting to SEC API and extracting MDA section..."):
-        try:
-            # Gerçek api_key'i KESİNLİKLE .env dosyasından çekmelisin, burada sabit bırakma!
-            from sec_api import ExtractorApi
-            extractorApi = ExtractorApi(api_key="YOUR_API_KEY_HERE")  # <---- Buraya kendi key'ini koy
-            mda_file_api_test_url_10_q = "https://www.sec.gov/ix?doc=/Archives/edgar/data/0000037996/000003799625000072/f-20250331.htm"
+# --- 7. MDA Section Extraction from SEC API ---
+# st.header("MDA Section Extraction from SEC API")
+# st.write(
+#     f"Click to extract the MD&A section from SEC filings using the SEC API. "
+#     f"(Selected company: **{company_db[selected_ticker]['name']}**, SEC Filing: [link]({selected_sec_url}))"
+# )
 
-            mda_key_dict = {
-                "10-Q": "part1item2",
-                "10-K": "7"
-            }
+# if st.button("✨ Get MDA from SEC API"):
+#     with st.spinner("Connecting to SEC API and extracting MDA section..."):
+#         try:
+#             if call_sec_api:
+#                 extractorApi = ExtractorApi(api_key="ac9ba652b06eae03d5f550d0585e3f9fdabaa36f186482b6f31f0d449514ff6b")  # Buraya kendi keyini koy
+#                 mda_file_api_test_url_10_q = selected_sec_url
+#                 mda_key_dict = {
+#                     "10-Q": "part1item2",
+#                     "10-K": "7"
+#                 }
+#                 # Not: Örnek olarak tüm linkler 10-Q gibi varsayılmıştır!
+#                 mdna_section = extractorApi.get_section(mda_file_api_test_url_10_q, mda_key_dict['10-Q'], "text")
+#             else:
+#                 print("working with hardcoded TEST_MDA_TEXT")
+#                 mdna_section = TEST_MDA_TEXT
+#             st.write(mdna_section)
+#         except Exception as e:
+#             st.error(f"API Connection Error: Could not connect to SEC API.")
+#             st.info(f"Details: {e}")
 
-            #item 2 or 7 depending
-            mdna_section = extractorApi.get_section(mda_file_api_test_url_10_q, mda_key_dict['10-Q'], "text")
-            st.write(mdna_section)
 
-        except Exception as e:
-            st.error(f"API Connection Error: Could not connect to SEC API.")
-            st.info(f"Details: {e}")
+
+# # --- 6. Deep-Dive Sentiment Analysis (FinBERT/Backend) ---
+# st.header("Deep-Dive Sentiment Analysis")
+# st.write("""
+# Click the button to perform a deep-dive analysis on the backend's default MDA text using FinBERT.
+# Results will be visualized below.
+# """)
+
+# DEFAULT_MDA_ANALYSIS_URL = "http://127.0.0.1:8000/analyze_default_mda/"  # Gerekirse backend URL'ini değiştir
+# mda_analyse_url = 'http://127.0.0.1:8000/analyze_mda'
+
+# if st.button("✨ Perform Deep-Dive Analysis"):
+#     with st.spinner("Connecting to backend and running analysis... Please wait."):
+#         try:
+#             #params shoud be body...
+#             params = {"mda_text": mdna_section}  # Burada TEST_MDA_TEXT'i kullanıyoruz
+#             response = requests.post(mda_analyse_url, params=params, timeout=300)
+#             response.raise_for_status()
+#             data = response.json()
+#             results = data.get("sentiment_results")
+
+#             print("sentiment:", results)
+#             st.write(results)
+#             st.success(f"Analysis Completed! Source: `{data.get('source', 'N/A')}`")
+#             st.markdown("### Analysis Results")
+
+#             labels = ['Positive Paragraphs', 'Negative Paragraphs', 'Neutral Paragraphs']
+#             values = [
+#                 results.get("count_positive_chunks", 0),
+#                 results.get("count_negative_chunks", 0),
+#                 results.get("count_neutral_chunks", 0)
+#             ]
+#             pie_colors = ['#28a745', '#dc3545', '#6c757d']
+
+#             fig_pie = go.Figure(data=[go.Pie(
+#                 labels=labels,
+#                 values=values,
+#                 hole=.5,
+#                 marker_colors=pie_colors,
+#                 pull=[0.05, 0, 0]
+#             )])
+
+#             fig_pie.update_layout(
+#                 title_text="Paragraph Sentiment Distribution",
+#                 template="plotly_dark",
+#                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+#             )
+
+#             col1, col2 = st.columns([1, 1])
+
+#             with col1:
+#                 st.plotly_chart(fig_pie, use_container_width=True)
+#             with col2:
+#                 st.markdown("#### Key Metrics")
+#                 st.markdown(f"""
+#                 - **Peak Positive Score:** `{results.get("max_positive_score", 0):.4f}`
+#                 - **Peak Negative Score:** `{results.get("max_negative_score", 0):.4f}`
+#                 - **Average Positive Score:** `{results.get("avg_positive", 0):.4f}`
+#                 - **Average Negative Score:** `{results.get("avg_negative", 0):.4f}`
+#                 """)
+#                 total_paragraphs = sum(values)
+#                 st.info(f"A total of **{total_paragraphs}** paragraphs were analyzed.")
+
+#             with st.expander("View Raw Dictionary Output"):
+#                 st.json(results)
+
+#         except requests.exceptions.RequestException as e:
+#             st.error(f"API Connection Error: Could not connect to the backend.")
+#             st.info(f"Details: {e}")
+
+# st.markdown("---")
+
+# #prediction
+# st.header("Deep-Dive Prediction")
+# st.write("""
+# Click the button to perform a deep-dive analysis on the backend's default MDA text using FinBERT.
+# Results will be visualized below.
+# """)
+
+# prediction_endpoint = f"{BACKEND_BASE_URL}/get_prediction_from_sentiment_processed"
+
+# if st.button("✨ Get prediction"):
+#     with st.spinner("Connecting to backend and running prediction... Please wait."):
+#         try:
+#             X_new = pd.DataFrame([{
+#                 'net_sentiment': -0.1,
+#                 'industry': 'Auto Manufacturers',
+#                 'q_num': "4",
+#                 'neutral_dominance': False
+#                 }])
+#             X_new = X_new.astype({
+#                 'q_num': 'object',
+#                 'neutral_dominance': 'object'
+#             })
+
+#             #params shoud be body...
+#             params = {"X_new": X_new.iloc[0].to_dict()}  # Burada TEST_MDA_TEXT'i kullanıyoruz
+#             print("params", params)
+#             print(X_new.columns)
+#             response = requests.get(prediction_endpoint, params=X_new.iloc[0].to_dict(), timeout=300)
+#             response.raise_for_status()
+#             data = response.json()
+#             prediction = data.get("prediction")
+
+#             print("prediction:", prediction)
+#             st.write(prediction)
+#             st.success(f"Analysis Completed! Source: `{data.get('source', 'N/A')}`")
+#             st.markdown("### Analysis Results")
+#         except Exception as e:
+#             print("something went wrong", e)

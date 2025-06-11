@@ -8,10 +8,21 @@ from google.api_core.exceptions import NotFound
 # big query
 from google.cloud import bigquery
 
+#bq access from streamlit
+from google.oauth2 import service_account
+from google.cloud import bigquery
+import streamlit as st
+
 import re
 
 BQ_PROJECT_ID = 'sentiment-lewagon'
 BQ_DATASET_ID = 'sentiment_db'
+
+# Create API client.
+credentials = service_account.Credentials.from_service_account_info(
+    st.secrets["gcp_service_account"]
+)
+client = bigquery.Client(credentials=credentials)
 
 #HELPER FUNCTIONS
 def download_df_from_bq(table_name, custom_query = ""):
@@ -19,7 +30,7 @@ def download_df_from_bq(table_name, custom_query = ""):
         table_name not used if custom query provided
     """
     #Set up the BigQuery client
-    client = bigquery.Client()
+    # client = bigquery.Client()
 
     BQ_TABLE_ID = table_name
     table_ref = f"{BQ_PROJECT_ID}.{BQ_DATASET_ID}.{BQ_TABLE_ID}"
@@ -27,7 +38,7 @@ def download_df_from_bq(table_name, custom_query = ""):
         query = custom_query
     else:
         query = f"SELECT * FROM `{table_ref}`"
-    
+
     try:
         df = client.query(query).to_dataframe()
         return df
