@@ -2,39 +2,83 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import requests
+from data_front import get_sentiment_over_time, TEST_MDA_TEXT
+from sec_api import ExtractorApi
 
-from data_front import get_sentiment_over_time
+#glibal
+call_sec_api = False
+mdna_section = ""
+
+BACKEND_BASE_URL = "http://127.0.0.1:8000"
 
 st.set_page_config(page_title="Corporate Net Sentiment Analysis", layout="wide")
 st.markdown("<h1 style='text-align: center; margin-bottom: 2rem;'>Corporate Net Sentiment Analysis</h1>", unsafe_allow_html=True)
 
-# --- Ticker/Sector seçimi için örnek liste ---
+# --- 1. SEC Links & Company Database ---
 company_db = {
-    "AAPL": {"sector": "Technology"},
-    "MSFT": {"sector": "Technology"},
-    # Gerekirse buraya yeni şirketler ekleyebilirsin
+    "mcd": {
+        "name": "McDonald's",
+        "sector": "Consumer Cyclical",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0000063908/000006390825000025/mcd-20250331.htm"
+    },
+    "mtch": {
+        "name": "Match Group",
+        "sector": "Communication Services",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0000891103/000089110325000076/mtch-20250331.htm"
+    },
+    "lyv": {
+        "name": "Live Nation",
+        "sector": "Communication Services",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0001335258/000133525825000055/lyv-20250331.htm"
+    },
+    "bby": {
+        "name": "Best Buy",
+        "sector": "Consumer Cyclical",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0000764478/000076447825000019/bby-20250503x10q.htm"
+    },
+    "ba": {
+        "name": "Boeing",
+        "sector": "Industrials",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0000012927/000001292725000031/ba-20250331.htm"
+    },
+    "tsla": {
+        "name": "Tesla",
+        "sector": "Consumer Discretionary",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0001318605/000162828025018911/tsla-20250331.htm"
+    },
+    "xom": {
+        "name": "Exxon Mobil",
+        "sector": "Energy",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0000034088/000003408825000024/xom-20250331.htm"
+    },
+    "cmg": {
+        "name": "Chipotle",
+        "sector": "Consumer Cyclical",
+        "sec_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/0001058090/000105809025000031/cmg-20250331.htm"
+    }
 }
+
 all_tickers = list(company_db.keys())
-all_sectors = sorted(set([v["sector"] for v in company_db.values()]))
+ticker_names = [f"{company_db[t]['name']} ({t.upper()})" for t in all_tickers]
+ticker_label_to_ticker = {f"{company_db[t]['name']} ({t.upper()})": t for t in all_tickers}
 
-col1, col2 = st.columns(2)
-with col1:
-    selected_ticker = st.selectbox("Select Ticker", all_tickers)
-with col2:
-    selected_sector = st.selectbox("Select Sector", all_sectors)
+# --- 2. Company Selectbox ---
+selected_label = st.selectbox("Select Company", ticker_names)
+selected_ticker = ticker_label_to_ticker[selected_label]
+selected_sector = company_db[selected_ticker]["sector"]
+selected_sec_url = company_db[selected_ticker]["sec_url"]
 
-# --- Data çek ---
-df = get_sentiment_over_time(selected_ticker)
+# --- 3. Net Sentiment Data (Dummy, can be replaced with real) ---
+df = get_sentiment_over_time(selected_ticker.upper())
 
 if df.empty:
     st.warning("No data available for the selected ticker.")
     st.stop()
 
-# --- Quarter-Year Selectbox ---
+# --- 4. Quarter-Year Selectbox ---
 quarter_year_options = df["quarter_year"].unique()
 selected_quarter = st.selectbox("Select Quarter & Year", quarter_year_options)
 
-# --- Seçili satırı bul ve göster ---
 row = df[df["quarter_year"] == selected_quarter]
 if row.empty:
     st.warning("No data for the selected quarter.")
@@ -45,18 +89,16 @@ colA, colB, colC, colD = st.columns(4)
 colA.metric("Quarter-Year", selected_row["quarter_year"])
 colB.metric("Net Sentiment", f'{selected_row["net_sentiment"]:.2f}')
 colC.metric("Sector", selected_row["sector"])
-colD.metric("Ticker", selected_row["ticker"])
+colD.metric("Ticker", selected_ticker.upper())
 
 st.markdown("---")
 st.subheader("All Quarters Table")
 st.dataframe(df, use_container_width=True)
 
-# --- Grafik ---
+# --- 5. Modern Bar Chart (Up Green / Down Red) ---
 st.subheader("Quarterly Net Sentiment (Bar Chart)")
-
-# Pozitif/negatif renk listesi otomatik oluşturuluyor
 colors = ["#00CC96" if val >= 0 else "#EF553B" for val in df["net_sentiment"]]
-# Plotly Bar Chart
+
 fig = go.Figure()
 fig.add_trace(go.Bar(
     x=df["quarter_year"],
@@ -76,13 +118,39 @@ fig.update_layout(
     height=450
 )
 st.plotly_chart(fig, use_container_width=True)
-
 st.markdown("---")
 
-# ==============================================================================
-# DEEP-DIVE SENTIMENT ANALYSIS (FinBERT backend ile konuşur)
-# ==============================================================================
 
+# --- 7. MDA Section Extraction from SEC API ---
+st.header("MDA Section Extraction from SEC API")
+st.write(
+    f"Click to extract the MD&A section from SEC filings using the SEC API. "
+    f"(Selected company: **{company_db[selected_ticker]['name']}**, SEC Filing: [link]({selected_sec_url}))"
+)
+
+if st.button("✨ Get MDA from SEC API"):
+    with st.spinner("Connecting to SEC API and extracting MDA section..."):
+        try:
+            if call_sec_api:
+                extractorApi = ExtractorApi(api_key="ac9ba652b06eae03d5f550d0585e3f9fdabaa36f186482b6f31f0d449514ff6b")  # Buraya kendi keyini koy
+                mda_file_api_test_url_10_q = selected_sec_url
+                mda_key_dict = {
+                    "10-Q": "part1item2",
+                    "10-K": "7"
+                }
+                # Not: Örnek olarak tüm linkler 10-Q gibi varsayılmıştır!
+                mdna_section = extractorApi.get_section(mda_file_api_test_url_10_q, mda_key_dict['10-Q'], "text")
+            else:
+                print("working with hardcoded TEST_MDA_TEXT")
+                mdna_section = TEST_MDA_TEXT
+            st.write(mdna_section)
+        except Exception as e:
+            st.error(f"API Connection Error: Could not connect to SEC API.")
+            st.info(f"Details: {e}")
+
+
+
+# --- 6. Deep-Dive Sentiment Analysis (FinBERT/Backend) ---
 st.header("Deep-Dive Sentiment Analysis")
 st.write("""
 Click the button to perform a deep-dive analysis on the backend's default MDA text using FinBERT.
@@ -90,15 +158,20 @@ Results will be visualized below.
 """)
 
 DEFAULT_MDA_ANALYSIS_URL = "http://127.0.0.1:8000/analyze_default_mda/"  # Gerekirse backend URL'ini değiştir
+mda_analyse_url = 'http://127.0.0.1:8000/analyze_mda'
 
 if st.button("✨ Perform Deep-Dive Analysis"):
     with st.spinner("Connecting to backend and running analysis... Please wait."):
         try:
-            response = requests.get(DEFAULT_MDA_ANALYSIS_URL, timeout=300)
+            #params shoud be body...
+            params = {"mda_text": mdna_section}  # Burada TEST_MDA_TEXT'i kullanıyoruz
+            response = requests.post(mda_analyse_url, params=params, timeout=300)
             response.raise_for_status()
             data = response.json()
             results = data.get("sentiment_results")
 
+            print("sentiment:", results)
+            st.write(results)
             st.success(f"Analysis Completed! Source: `{data.get('source', 'N/A')}`")
             st.markdown("### Analysis Results")
 
@@ -108,13 +181,13 @@ if st.button("✨ Perform Deep-Dive Analysis"):
                 results.get("count_negative_chunks", 0),
                 results.get("count_neutral_chunks", 0)
             ]
-            colors = ['#28a745', '#dc3545', '#6c757d']
+            pie_colors = ['#28a745', '#dc3545', '#6c757d']
 
             fig_pie = go.Figure(data=[go.Pie(
                 labels=labels,
                 values=values,
                 hole=.5,
-                marker_colors=colors,
+                marker_colors=pie_colors,
                 pull=[0.05, 0, 0]
             )])
 
@@ -147,31 +220,41 @@ if st.button("✨ Perform Deep-Dive Analysis"):
             st.info(f"Details: {e}")
 
 st.markdown("---")
+#prediction
+st.header("Deep-Dive Prediction")
+st.write("""
+Click the button to perform a deep-dive analysis on the backend's default MDA text using FinBERT.
+Results will be visualized below.
+""")
 
-# ==============================================================================
-# MD&A SECTION EXTRACTION (SEC API ile metin çekmek)
-# ==============================================================================
+prediction_endpoint = f"{BACKEND_BASE_URL}/get_prediction_from_sentiment_processed"
 
-st.header("MDA Section Extraction from SEC API")
-st.write("Click to extract the MD&A section from SEC filings using the SEC API.")
-
-if st.button("✨ Get MDA from SEC API"):
-    with st.spinner("Connecting to SEC API and extracting MDA section..."):
+if st.button("✨ Get prediction"):
+    with st.spinner("Connecting to backend and running prediction... Please wait."):
         try:
-            # Gerçek api_key'i KESİNLİKLE .env dosyasından çekmelisin, burada sabit bırakma!
-            from sec_api import ExtractorApi
-            extractorApi = ExtractorApi(api_key="YOUR_API_KEY_HERE")  # <---- Buraya kendi key'ini koy
-            mda_file_api_test_url_10_q = "https://www.sec.gov/ix?doc=/Archives/edgar/data/0000037996/000003799625000072/f-20250331.htm"
+            X_new = pd.DataFrame([{
+                'net_sentiment': -0.1,
+                'industry': 'Auto Manufacturers',
+                'q_num': "4",
+                'neutral_dominance': False
+                }])
+            X_new = X_new.astype({
+                'q_num': 'object',
+                'neutral_dominance': 'object'
+            })
 
-            mda_key_dict = {
-                "10-Q": "part1item2",
-                "10-K": "7"
-            }
+            #params shoud be body...
+            params = {"X_new": X_new.iloc[0].to_dict()}  # Burada TEST_MDA_TEXT'i kullanıyoruz
+            print("params", params)
+            print(X_new.columns)
+            response = requests.get(prediction_endpoint, params=X_new.iloc[0].to_dict(), timeout=300)
+            response.raise_for_status()
+            data = response.json()
+            prediction = data.get("prediction")
 
-            #item 2 or 7 depending
-            mdna_section = extractorApi.get_section(mda_file_api_test_url_10_q, mda_key_dict['10-Q'], "text")
-            st.write(mdna_section)
-
+            print("prediction:", prediction)
+            st.write(prediction)
+            st.success(f"Analysis Completed! Source: `{data.get('source', 'N/A')}`")
+            st.markdown("### Analysis Results")
         except Exception as e:
-            st.error(f"API Connection Error: Could not connect to SEC API.")
-            st.info(f"Details: {e}")
+            print("something went wrong", e)
