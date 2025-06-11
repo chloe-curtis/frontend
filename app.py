@@ -1,8 +1,8 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import requests
+
 from data_front import get_sentiment_over_time
 
 st.set_page_config(page_title="Corporate Net Sentiment Analysis", layout="wide")
@@ -162,12 +162,16 @@ if st.button("✨ Get MDA from SEC API"):
             from sec_api import ExtractorApi
             extractorApi = ExtractorApi(api_key="YOUR_API_KEY_HERE")  # <---- Buraya kendi key'ini koy
             mda_file_api_test_url_10_q = "https://www.sec.gov/ix?doc=/Archives/edgar/data/0000037996/000003799625000072/f-20250331.htm"
+
             mda_key_dict = {
                 "10-Q": "part1item2",
                 "10-K": "7"
             }
+
+            #item 2 or 7 depending
             mdna_section = extractorApi.get_section(mda_file_api_test_url_10_q, mda_key_dict['10-Q'], "text")
             st.write(mdna_section)
+
         except Exception as e:
             st.error(f"API Connection Error: Could not connect to SEC API.")
             st.info(f"Details: {e}")
