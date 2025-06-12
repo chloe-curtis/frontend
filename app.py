@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import requests
 from data_front import sector_sentiment, ticker_sentiment, TEST_MDA_TEXT
 # from sec_api import ExtractorApi
-
+from streamlit_extras.let_it_rain import rain
 
 #glibal
 call_sec_api = False
@@ -792,7 +792,13 @@ st.markdown(f"**MDA Section:** {data.get('mda', 'No data')}")
 
 st.markdown("---")
 
-
+def example():
+    rain(
+        emoji="💵",
+        font_size=54,
+        falling_speed=5,
+        animation_length="infinite",
+    )
 
 
 # --- Make prediction from MDA section ---
@@ -818,7 +824,7 @@ if st.button("✨ Get Prediction from MDA"):
             st.success(f"Neutral Dominance: {neutral_dominance}")
             st.success(f"Net Sentiment: {round(net_sentiment, 4)}")
             if prediction == 1:
-                st.balloons()
+                rain('💵')
 
             # st.success(f"Sentiment Entropy: {sentiment_entropy}")
         except Exception as e:
