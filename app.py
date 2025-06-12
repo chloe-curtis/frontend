@@ -817,6 +817,9 @@ if st.button("✨ Get Prediction from MDA"):
             st.success(f"Prediction: {'Stock Price will likely to go up!' if prediction==1 else 'Stock Price will likely to go down...'}")
             st.success(f"Neutral Dominance: {neutral_dominance}")
             st.success(f"Net Sentiment: {round(net_sentiment, 4)}")
+            if prediction == 1:
+                st.balloons()
+
             # st.success(f"Sentiment Entropy: {sentiment_entropy}")
         except Exception as e:
             st.error(f"Error getting prediction: {e}")
