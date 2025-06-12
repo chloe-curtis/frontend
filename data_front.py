@@ -203,7 +203,7 @@ def ticker_sentiment(ticker):
                 AND
             ticker = '{ticker.upper()}'
         """
-    print("running query:", query_ticker)
+    # print("running query:", query_ticker)
     ticker_df = download_df_from_bq("net_sentiment", custom_query=query_ticker)
 
     # Apply the function to the column
