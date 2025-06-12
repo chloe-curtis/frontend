@@ -780,7 +780,8 @@ all_urls = list(url_db.keys())
 selected_url = st.selectbox("Select Ticker", all_urls)
 
 data = url_db[selected_url]
-
+mda = data.get('mda', 'No MDA data available')
+response = requests.get(data['html'])
 # Display all data
 st.markdown(f"**MDA Section:** {data.get('mda', 'No data')}")
 st.markdown(f"**Neutral Dominance:** {data.get('neutral_dominance', 'N/A')}")
@@ -930,3 +931,30 @@ st.markdown("---")
 #             st.markdown("### Analysis Results")
 #         except Exception as e:
 #             print("something went wrong", e)
+
+# --- Make prediction from MDA section ---
+prediction_endpoint = f"{BACKEND_BASE_URL}/get_prediction_from_mda"
+
+if st.button("✨ Get Prediction from MDA"):
+    with st.spinner("Getting prediction from backend..."):
+        try:
+            mda_text = data.get('mda', '')
+            response = requests.post(
+                prediction_endpoint,
+                json={"mda_payload": mda_text},
+                timeout=60
+            )
+            response.raise_for_status()
+            result = response.json()
+            prediction = result.get("prediction", "No prediction returned")
+            neutral_dominance = result.get("neutral_dominance", "N/A")
+            net_sentiment = result.get("net_sentiment", "N/A")
+            # sentiment_entropy = result.get("sentiment_entropy", "N/A")
+            st.success(f"Prediction: {prediction}")
+            st.success(f"Neutral Dominance: {neutral_dominance}")
+            st.success(f"Net Sentiment: {net_sentiment}")
+            # st.success(f"Sentiment Entropy: {sentiment_entropy}")
+        except Exception as e:
+            st.error(f"Error getting prediction: {e}")
+
+st.markdown("---")
