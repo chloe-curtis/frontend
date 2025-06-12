@@ -11,7 +11,7 @@ call_sec_api = False
 mdna_section = ""
 
 # BACKEND_BASE_URL = "http://localhost:8000"
-BACKEND_BASE_URL = 'https://corporate-sentiment-tracker-217305741515.europe-west1.run.app'
+BACKEND_BASE_URL = 'https://corporate-sentiment-tracker-217305741515.europe-west1.run.app/'
 
 
 
@@ -785,153 +785,15 @@ mda = data.get('mda', 'No MDA data available')
 response = requests.get(data['html'])
 # Display all data
 st.markdown(f"**MDA Section:** {data.get('mda', 'No data')}")
-st.markdown(f"**Neutral Dominance:** {data.get('neutral_dominance', 'N/A')}")
-st.markdown(f"**Net Sentiment:** {data.get('net_sentiment', 'N/A')}")
-st.markdown(f"\n**Prediction:** {data.get('up_and_down', 'N/A')}")
+# st.markdown(f"**Neutral Dominance:** {data.get('neutral_dominance', 'N/A')}")
+# st.markdown(f"**Net Sentiment:** {data.get('net_sentiment', 'N/A')}")
+# st.markdown(f"\n**Prediction:** {data.get('up_and_down', 'N/A')}")
 
 
 st.markdown("---")
 
 
 
-# --- 7. MDA Section Extraction from SEC API ---
-# st.header("MDA Section Extraction from SEC API")
-# st.write(
-#     f"Click to extract the MD&A section from SEC filings using the SEC API. "
-#     f"(Selected company: **{company_db[selected_ticker]['name']}**, SEC Filing: [link]({selected_sec_url}))"
-# )
-
-# if st.button("✨ Get MDA from SEC API"):
-#     with st.spinner("Connecting to SEC API and extracting MDA section..."):
-#         try:
-#             if call_sec_api:
-#                 extractorApi = ExtractorApi(api_key="ac9ba652b06eae03d5f550d0585e3f9fdabaa36f186482b6f31f0d449514ff6b")  # Buraya kendi keyini koy
-#                 mda_file_api_test_url_10_q = selected_sec_url
-#                 mda_key_dict = {
-#                     "10-Q": "part1item2",
-#                     "10-K": "7"
-#                 }
-#                 # Not: Örnek olarak tüm linkler 10-Q gibi varsayılmıştır!
-#                 mdna_section = extractorApi.get_section(mda_file_api_test_url_10_q, mda_key_dict['10-Q'], "text")
-#             else:
-#                 print("working with hardcoded TEST_MDA_TEXT")
-#                 mdna_section = TEST_MDA_TEXT
-#             st.write(mdna_section)
-#         except Exception as e:
-#             st.error(f"API Connection Error: Could not connect to SEC API.")
-#             st.info(f"Details: {e}")
-
-
-
-# # --- 6. Deep-Dive Sentiment Analysis (FinBERT/Backend) ---
-# st.header("Deep-Dive Sentiment Analysis")
-# st.write("""
-# Click the button to perform a deep-dive analysis on the backend's default MDA text using FinBERT.
-# Results will be visualized below.
-# """)
-
-# DEFAULT_MDA_ANALYSIS_URL = "http://127.0.0.1:8000/analyze_default_mda/"  # Gerekirse backend URL'ini değiştir
-# mda_analyse_url = 'http://127.0.0.1:8000/analyze_mda'
-
-# if st.button("✨ Perform Deep-Dive Analysis"):
-#     with st.spinner("Connecting to backend and running analysis... Please wait."):
-#         try:
-#             #params shoud be body...
-#             params = {"mda_text": mdna_section}  # Burada TEST_MDA_TEXT'i kullanıyoruz
-#             response = requests.post(mda_analyse_url, params=params, timeout=300)
-#             response.raise_for_status()
-#             data = response.json()
-#             results = data.get("sentiment_results")
-
-#             print("sentiment:", results)
-#             st.write(results)
-#             st.success(f"Analysis Completed! Source: `{data.get('source', 'N/A')}`")
-#             st.markdown("### Analysis Results")
-
-#             labels = ['Positive Paragraphs', 'Negative Paragraphs', 'Neutral Paragraphs']
-#             values = [
-#                 results.get("count_positive_chunks", 0),
-#                 results.get("count_negative_chunks", 0),
-#                 results.get("count_neutral_chunks", 0)
-#             ]
-#             pie_colors = ['#28a745', '#dc3545', '#6c757d']
-
-#             fig_pie = go.Figure(data=[go.Pie(
-#                 labels=labels,
-#                 values=values,
-#                 hole=.5,
-#                 marker_colors=pie_colors,
-#                 pull=[0.05, 0, 0]
-#             )])
-
-#             fig_pie.update_layout(
-#                 title_text="Paragraph Sentiment Distribution",
-#                 template="plotly_dark",
-#                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-#             )
-
-#             col1, col2 = st.columns([1, 1])
-
-#             with col1:
-#                 st.plotly_chart(fig_pie, use_container_width=True)
-#             with col2:
-#                 st.markdown("#### Key Metrics")
-#                 st.markdown(f"""
-#                 - **Peak Positive Score:** `{results.get("max_positive_score", 0):.4f}`
-#                 - **Peak Negative Score:** `{results.get("max_negative_score", 0):.4f}`
-#                 - **Average Positive Score:** `{results.get("avg_positive", 0):.4f}`
-#                 - **Average Negative Score:** `{results.get("avg_negative", 0):.4f}`
-#                 """)
-#                 total_paragraphs = sum(values)
-#                 st.info(f"A total of **{total_paragraphs}** paragraphs were analyzed.")
-
-#             with st.expander("View Raw Dictionary Output"):
-#                 st.json(results)
-
-#         except requests.exceptions.RequestException as e:
-#             st.error(f"API Connection Error: Could not connect to the backend.")
-#             st.info(f"Details: {e}")
-
-# st.markdown("---")
-
-# #prediction
-# st.header("Deep-Dive Prediction")
-# st.write("""
-# Click the button to perform a deep-dive analysis on the backend's default MDA text using FinBERT.
-# Results will be visualized below.
-# """)
-
-# prediction_endpoint = f"{BACKEND_BASE_URL}/get_prediction_from_sentiment_processed"
-
-# if st.button("✨ Get prediction"):
-#     with st.spinner("Connecting to backend and running prediction... Please wait."):
-#         try:
-#             X_new = pd.DataFrame([{
-#                 'net_sentiment': -0.1,
-#                 'industry': 'Auto Manufacturers',
-#                 'q_num': "4",
-#                 'neutral_dominance': False
-#                 }])
-#             X_new = X_new.astype({
-#                 'q_num': 'object',
-#                 'neutral_dominance': 'object'
-#             })
-
-#             #params shoud be body...
-#             params = {"X_new": X_new.iloc[0].to_dict()}  # Burada TEST_MDA_TEXT'i kullanıyoruz
-#             print("params", params)
-#             print(X_new.columns)
-#             response = requests.get(prediction_endpoint, params=X_new.iloc[0].to_dict(), timeout=300)
-#             response.raise_for_status()
-#             data = response.json()
-#             prediction = data.get("prediction")
-
-#             print("prediction:", prediction)
-#             st.write(prediction)
-#             st.success(f"Analysis Completed! Source: `{data.get('source', 'N/A')}`")
-#             st.markdown("### Analysis Results")
-#         except Exception as e:
-#             print("something went wrong", e)
 
 # --- Make prediction from MDA section ---
 prediction_endpoint = f"{BACKEND_BASE_URL}/get_prediction_from_mda"
@@ -940,9 +802,10 @@ if st.button("✨ Get Prediction from MDA"):
     with st.spinner("Getting prediction from backend..."):
         try:
             mda_text = data.get('mda', '')
+
             response = requests.post(
                 prediction_endpoint,
-                json={"mda_payload": mda_text},
+                json={"mda_payload": mda_text, 'selected_ticker': selected_url},
                 timeout=60
             )
             response.raise_for_status()
@@ -951,9 +814,9 @@ if st.button("✨ Get Prediction from MDA"):
             neutral_dominance = result.get("neutral_dominance", "N/A")
             net_sentiment = result.get("net_sentiment", "N/A")
             # sentiment_entropy = result.get("sentiment_entropy", "N/A")
-            st.success(f"Prediction: {prediction}")
+            st.success(f"Prediction: {'Stock Price will likely to go up!' if prediction==1 else 'Stock Price will likely to go down...'}")
             st.success(f"Neutral Dominance: {neutral_dominance}")
-            st.success(f"Net Sentiment: {net_sentiment}")
+            st.success(f"Net Sentiment: {round(net_sentiment, 4)}")
             # st.success(f"Sentiment Entropy: {sentiment_entropy}")
         except Exception as e:
             st.error(f"Error getting prediction: {e}")
