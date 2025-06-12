@@ -3,14 +3,15 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 from data_front import sector_sentiment, ticker_sentiment, TEST_MDA_TEXT
-from sec_api import ExtractorApi
+# from sec_api import ExtractorApi
 
 
 #glibal
 call_sec_api = False
 mdna_section = ""
 
-BACKEND_BASE_URL = "http://localhost:8000"
+# BACKEND_BASE_URL = "http://localhost:8000"
+BACKEND_BASE_URL = 'https://corporate-sentiment-tracker-217305741515.europe-west1.run.app'
 
 
 
