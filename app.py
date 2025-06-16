@@ -11,8 +11,8 @@ call_sec_api = False
 mdna_section = ""
 
 # BACKEND_BASE_URL = "http://localhost:8000"
-BACKEND_BASE_URL = 'https://cst-217305741515.europe-west2.run.app/'
-# BACKEND_BASE_URL = 'https://corporate-sentiment-tracker-217305741515.europe-west1.run.app/'
+# BACKEND_BASE_URL = 'https://cst-217305741515.europe-west2.run.app/'
+BACKEND_BASE_URL = 'https://corporate-sentiment-tracker-217305741515.europe-west1.run.app/'
 
 
 
